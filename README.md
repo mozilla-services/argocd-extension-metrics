@@ -116,6 +116,47 @@ needs to be reacheable by the Argo CD API server.
 
 ## Contributing
 
-TODO
+### Build and Debug Locally
+
+Copy the [config.json](app/config.json) file and update the `endpoints` section of [config.json](app/config.json) to use the endpoint URLs found [here](https://mozilla-hub.atlassian.net/wiki/spaces/CS1/pages/1280344209/Yardstick+Admin+Guide#GMP-Endpoints-for-Scoping-Projects). This copy will be mounted when starting the container in steps below.
+
+```
+cp app/config.json ~/config.json
+# edit the copy to add urls
+```
+
+Dump a valid access token (one that has access to metrics in prometheus prod and nonprod scoping projects) into a `bearer.token` file. This will also be mounted in the container. If your google account has access to view them, simply run the following:
+```
+gcloud auth login
+gcloud auth print-access-token > ~/bearer.token
+```
+
+For debugging, build the image with the `builder` target specified. This will set the entrypoint to `dlv debug /app/cmd/main.go --headless --listen=:9004`, which starts a delve server that waits for a debugger client to connect.
+```
+docker build -t us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-extension-metrics:latest-debug --target builder .
+```
+
+To run without debugging, build without a target specified:
+```
+docker build -t us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-extension-metrics:latest .
+```
+
+Start a container with ports `9003` (webserver) and `9004` (delve) bound, and mount both the `bearer.token` and a `config.json` file specifying the endpoints to use.
+```
+docker run -p 9003:9003 -p 9004:9004 --mount type=bind,src=~/config.json,dst=/app/app/config.json --mount type=bind,src=~/bearer.token,dst=/token/bearer.token --name metrics us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-extension-metrics:latest-debug
+```
+
+Container should now be started. If debug image was used, server will pause until a debugger attaches, so run `Attach to Process` from the debug pane in VS Code.
+
+### Sending Requests to a Local Build
+
+This argo extension is a [proxy extension](https://argo-cd.readthedocs.io/en/stable/developer-guide/extensions/proxy-extensions/), so by convention it expects requests from Argo CD to include mandatory headers (`Argocd-Application-Name` and `Argocd-Project-Name`). This extension in particular also expects some mandatory query parameters to be specified.
+
+Here's an example request that can be used for testing. Replace the `<argo-application-name>`, `<argo-project-name>`, `<pod-name>`, and `<k8s-namespace>` placeholders with the relevant details for your pod.
+```
+curl '127.0.0.1:9003/api/applications/<argo-application-name>/groupkinds/pod/rows/cpu_limit/graphs/pod_cpu_limit_utilization?name=<pod-name>.*&namespace=<k8s-namespace>&application_name=<argo-application-name>&project=<argo-project-name>&duration=1h' \
+-H "Argocd-Application-Name: <k8s-namespace>:<argo-application-name>" \
+-H "Argocd-Project-Name: <argo-project-name>"
+```
 
 [1]: https://github.com/argoproj-labs/argocd-extension-installer

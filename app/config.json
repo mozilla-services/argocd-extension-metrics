@@ -2,206 +2,114 @@
   "prometheus": {
     "applications": [
       {
-        "name": "demo-app-ai-ops",
-        "dashboards": [
-          {
-            "groupKind": "deployment",
-            "tabs": ["GoldenSignal"],
-            "rows": [
-              {
-                "name": "httplatency",
-                "title": "HTTP Latency",
-                "tab": "GoldenSignal",
-                "graphs": [
-                  {
-                    "name": "http_200_latency",
-                    "title": "Latency",
-                    "description": "",
-                    "graphType": "line",
-                    "metricName": "pod_template_hash",
-                    "queryExpression": "sum(rate(http_server_requests_seconds_sum {namespace=\"{{.namespace}}\", status=\"200\"} [1m])) by (namespace,  pod_template_hash)"
-                  }
-                ]
-              },
-              {
-                "name": "httperrortate",
-                "title": "HTTP Error Rate",
-                "tab": "GoldenSignal",
-                "graphs": [
-                  {
-                    "name": "http_error_rate_500",
-                    "title": "HTTP Error 500",
-                    "description": "",
-                    "graphType": "line",
-                    "metricName": "pod_template_hash",
-                    "queryExpression": "sum(rate(http_server_requests_seconds_count {namespace=\"{{.namespace}}\", status=\"500\"} [1m])) by (namespace,  pod_template_hash)"
-                  },
-                  {
-                    "name": "http_error_rate_400",
-                    "title": "HTTP Error 400",
-                    "description": "",
-                    "graphType": "line",
-                    "metricName": "pod_template_hash",
-                    "queryExpression": "sum(rate(http_server_requests_seconds_count {namespace=\"{{.namespace}}\", status=\"404\"} [1m])) by (namespace, pod_template_hash)"
-                  }
-                ]
-              },
-              {
-                "name": "httptraffic",
-                "title": "HTTP Traffic",
-                "tab": "GoldenSignal",
-                "graphs": [
-                  {
-                    "name": "http_traffic",
-                    "title": "Traffic",
-                    "description": "",
-                    "graphType": "line",
-                    "metricName": "pod_template_hash",
-                    "queryExpression": "sum(rate(http_server_requests_seconds_count {namespace=\"{{.namespace}}\"} [1m])) by (namespace, pod_template_hash)"
-                  }
-                ]
-              },
-
-              {
-                "name": "pod",
-                "title": "Pods",
-                "tab": "GoldenSignal",
-                "graphs": [
-                  {
-                    "name": "pod_cpu_line",
-                    "title": "CPU",
-                    "description": "",
-                    "graphType": "line",
-                    "metricName": "pod",
-                    "queryExpression": "sum(rate(container_cpu_usage_seconds_total{pod=~\"{{.name}}\", image!=\"\", container!=\"POD\", container!=\"\", container_name!=\"POD\"}[5m])) by (pod)"
-                  },
-                  {
-                    "name": "pod_cpu_pie",
-                    "title": "CPU Avg",
-                    "description": "",
-                    "graphType": "pie",
-                    "metricName": "pod",
-                    "queryExpression": "sum(rate(container_cpu_usage_seconds_total{pod=~\"{{.name}}\", container!=\"POD\", image!=\"\", container!=\"\", container_name!=\"POD\"}[5m])) by (pod)"
-                  },
-                  {
-                    "name": "pod_memory_line",
-                    "title": "Memory",
-                    "description": "",
-                    "graphType": "line",
-                    "metricName": "pod",
-                    "queryExpression": "sum(rate(container_memory_usage_bytes{pod=~\"{{.name}}\", container!=\"POD\", image!=\"\", container!=\"\", container_name!=\"POD\"}[5m])) by (pod)"
-                  },
-                  {
-                    "name": "pod_memory_pie",
-                    "title": "Mem Avg",
-                    "description": "",
-                    "graphType": "pie",
-                    "metricName": "pod",
-                    "queryExpression": "sum(rate(container_memory_usage_bytes{pod=~\"{{.name}}\", container!=\"POD\", image!=\"\", container!=\"\", container_name!=\"POD\"}[5m])) by (pod)"
-                  }
-                ]
-              }
-            ],
-            "intervals": [
-              "1h",
-              "2h",
-              "6h",
-              "12h",
-              "24h"
-            ]
-          }
-        ]
-      },
-      {
         "name": "default",
         "default": true,
         "dashboards": [
           {
             "groupKind": "pod",
-            "tabs": ["GoldenSignal"],
-            "intervals": [
-              "1h",
-              "2h",
-              "6h",
-              "12h",
-              "24h"
-            ],
+            "tabs": ["Resources"],
             "rows": [
               {
-                "name": "container",
-                "title": "Containers",
-                "tab": "GoldenSignal",
+                "name": "cpu_request",
+                "title": "CPU Requests",
+                "tab": "Resources",
                 "graphs": [
                   {
-                    "name": "container_cpu_line",
-                    "title": "CPU",
+                    "name": "pod_cpu_request_utilization",
+                    "title": "Request Utilization",
                     "description": "",
                     "graphType": "line",
-                    "metricName": "container",
-                    "queryExpression": "sum(rate(container_cpu_usage_seconds_total{pod=~\"{{.name}}\", image!=\"\", container!=\"POD\", container!=\"\", container_name!=\"POD\"}[5m])) by (container)"
+                    "metricName": "pod",
+                    "valueRounding": 2,
+                    "yAxisUnit": "%",
+                    "queryExpression": "kubernetes_io:container_cpu_request_utilization{pod_name=~\"{{.name}}\", container_name!=\"POD\"}*100"
                   },
                   {
-                    "name": "container_cpu_pie",
-                    "title": "CPU Avg",
-                    "description": "",
-                    "graphType": "pie",
-                    "metricName": "container",
-                    "queryExpression": "sum(rate(container_cpu_usage_seconds_total{pod=~\"{{.name}}\", image!=\"\",container!=\"POD\", container!=\"\", container_name!=\"POD\"}[5m])) by (container)"
-                  },
-                  {
-                    "name": "container_memory_line",
-                    "title": "Memory",
+                    "name": "pod_cpu_request_cores",
+                    "title": "Cores Requested",
                     "description": "",
                     "graphType": "line",
-                    "metricName": "container",
-                    "queryExpression": "sum(rate(container_memory_usage_bytes{pod=~\"{{.name}}\", image!=\"\", container!=\"POD\", container!=\"\", container_name!=\"POD\"}[5m])) by (container)"
-                  },
-                  {
-                    "name": "container_memory_pie",
-                    "title": "Mem Avg",
-                    "description": "",
-                    "graphType": "pie",
-                    "metricName": "container",
-                    "queryExpression": "sum(rate(container_memory_usage_bytes{pod=~\"{{.name}}\", image!=\"\", container!=\"POD\", container!=\"\", container_name!=\"POD\"}[5m])) by (container)"
+                    "metricName": "pod",
+                    "queryExpression": "kubernetes_io:container_cpu_request_cores{pod_name=~\"{{.name}}\", container_name!=\"POD\"}"
                   }
                 ]
               },
               {
-                "name": "pod",
-                "title": "Pods",
-                "tab": "GoldenSignal",
+                "name": "cpu_limit",
+                "title": "CPU Limits",
+                "tab": "Resources",
                 "graphs": [
                   {
-                    "name": "pod_cpu_line",
-                    "title": "CPU",
+                    "name": "pod_cpu_limit_utilization",
+                    "title": "Limit Utilization",
                     "description": "",
                     "graphType": "line",
                     "metricName": "pod",
-                    "queryExpression": "sum(rate(container_cpu_usage_seconds_total{pod=~\"{{.name}}\", image!=\"\", container!=\"POD\", container!=\"\", container_name!=\"POD\"}[5m])) by (pod)"
+                    "valueRounding": 2,
+                    "yAxisUnit": "%",
+                    "queryExpression": "kubernetes_io:container_cpu_limit_utilization{pod_name=~\"{{.name}}\", container_name!=\"POD\"}*100"
                   },
                   {
-                    "name": "pod_cpu_pie",
-                    "title": "CPU Avg",
-                    "description": "",
-                    "graphType": "pie",
-                    "metricName": "pod",
-                    "queryExpression": "sum(rate(container_cpu_usage_seconds_total{pod=~\"{{.name}}\", container!=\"POD\", image!=\"\", container!=\"\", container_name!=\"POD\"}[5m])) by (pod)"
-                  },
-                  {
-                    "name": "pod_memory_line",
-                    "title": "Memory",
+                    "name": "pod_cpu_limit_cores",
+                    "title": "Core Limit",
                     "description": "",
                     "graphType": "line",
                     "metricName": "pod",
-                    "queryExpression": "sum(rate(container_memory_usage_bytes{pod=~\"{{.name}}\", container!=\"POD\", image!=\"\", container!=\"\", container_name!=\"POD\"}[5m])) by (pod)"
+                    "queryExpression": "kubernetes_io:container_cpu_limit_cores{pod_name=~\"{{.name}}\", container_name!=\"POD\"}"
+                  }
+                ]
+              },
+              {
+                "name": "mem_requests",
+                "title": "Memory Requests",
+                "tab": "Resources",
+                "graphs": [
+                  {
+                    "name": "pod_mem_request_utilization",
+                    "title": "Request Utilization",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "valueRounding": 2,
+                    "yAxisUnit": "%",
+                    "queryExpression": "kubernetes_io:container_memory_request_utilization{pod_name=~\"{{.name}}\", container_name!=\"POD\"}*100"
                   },
                   {
-                    "name": "pod_memory_pie",
-                    "title": "Mem Avg",
+                    "name": "pod_mem_request_bytes",
+                    "title": "Bytes Requested",
                     "description": "",
-                    "graphType": "pie",
+                    "graphType": "line",
                     "metricName": "pod",
-                    "queryExpression": "sum(rate(container_memory_usage_bytes{pod=~\"{{.name}}\", container!=\"POD\", image!=\"\", container!=\"\", container_name!=\"POD\"}[5m])) by (pod)"
+                    "valueRounding": 0,
+                    "yAxisUnit": "MB",
+                    "queryExpression": "kubernetes_io:container_memory_request_bytes{pod_name=~\"{{.name}}\", container_name!=\"POD\"}/1048576"
+                  }
+                ]
+              },
+              {
+                "name": "mem_limits",
+                "title": "Memory Limits",
+                "tab": "Resources",
+                "graphs": [
+                  {
+                    "name": "pod_mem_limit_utilization",
+                    "title": "Limit Utilization",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "valueRounding": 2,
+                    "yAxisUnit": "%",
+                    "queryExpression": "kubernetes_io:container_memory_limit_utilization{pod_name=~\"{{.name}}\", container_name!=\"POD\"}*100"
+                  },
+                  {
+                    "name": "pod_mem_limit_bytes",
+                    "title": "Byte Limit",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "valueRounding": 0,
+                    "yAxisUnit": "MB",
+                    "queryExpression": "kubernetes_io:container_memory_limit_bytes{pod_name=~\"{{.name}}\", container_name!=\"POD\"}/1048576"
                   }
                 ]
               }
@@ -209,129 +117,240 @@
           },
           {
             "groupKind": "deployment",
-            "intervals": [
-              "1h",
-              "2h",
-              "6h",
-              "12h",
-              "24h"
-            ],
+            "tabs": ["Resources"],
             "rows": [
               {
-                "name": "httpaggrigatedanomaly",
-                "title": "Unified Anomaly",
+                "name": "cpu_request",
+                "title": "CPU Requests",
+                "tab": "Resources",
                 "graphs": [
                   {
-                    "name": "application_aggrigate_anomaly",
-                    "title": "Anomaly",
+                    "name": "pod_cpu_request_utilization",
+                    "title": "Request Utilization",
                     "description": "",
                     "graphType": "line",
-                    "metricName": "namespace",
-                    "queryExpression": "sum by (namespace) (namespace_app_pod_unified_anomaly{namespace = \"{{.namespace}}\", app=\"\"})"
+                    "metricName": "pod",
+                    "valueRounding": 2,
+                    "yAxisUnit": "%",
+                    "queryExpression": "kubernetes_io:container_cpu_request_utilization{pod_name=~\"{{.name}}\", container_name!=\"POD\"}*100"
+                  },
+                  {
+                    "name": "pod_cpu_request_cores",
+                    "title": "Cores Requested",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "queryExpression": "kubernetes_io:container_cpu_request_cores{pod_name=~\"{{.name}}\", container_name!=\"POD\"}"
                   }
                 ]
               },
               {
-                "name": "httplatency",
-                "title": "HTTP Latency",
+                "name": "cpu_limit",
+                "title": "CPU Limits",
+                "tab": "Resources",
                 "graphs": [
                   {
-                    "name": "http_200_latency",
-                    "title": "Latency",
+                    "name": "pod_cpu_limit_utilization",
+                    "title": "Limit Utilization",
                     "description": "",
                     "graphType": "line",
-                    "metricName": "pod_template_hash",
-                    "queryExpression": "sum(rate(http_server_requests_seconds_sum {namespace=\"{{.namespace}}\", status=\"200\"} [1m])) by (namespace,  pod_template_hash)"
+                    "metricName": "pod",
+                    "valueRounding": 2,
+                    "yAxisUnit": "%",
+                    "queryExpression": "kubernetes_io:container_cpu_limit_utilization{pod_name=~\"{{.name}}\", container_name!=\"POD\"}*100"
+                  },
+                  {
+                    "name": "pod_cpu_limit_cores",
+                    "title": "Core Limit",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "queryExpression": "kubernetes_io:container_cpu_limit_cores{pod_name=~\"{{.name}}\", container_name!=\"POD\"}"
                   }
                 ]
               },
               {
-                "name": "httperrortate",
-                "title": "HTTP Error Rate",
+                "name": "mem_requests",
+                "title": "Memory Requests",
+                "tab": "Resources",
                 "graphs": [
                   {
-                    "name": "http_error_rate_500",
-                    "title": "HTTP Error 500",
+                    "name": "pod_mem_request_utilization",
+                    "title": "Request Utilization",
                     "description": "",
                     "graphType": "line",
-                    "metricName": "pod_template_hash",
-                    "queryExpression": "sum(rate(http_server_requests_seconds_count {namespace=\"{{.namespace}}\", status=\"500\"} [1m])) by (namespace,  pod_template_hash)"
+                    "metricName": "pod",
+                    "valueRounding": 2,
+                    "yAxisUnit": "%",
+                    "queryExpression": "kubernetes_io:container_memory_request_utilization{pod_name=~\"{{.name}}\", container_name!=\"POD\"}*100"
                   },
                   {
-                    "name": "http_error_rate_400",
-                    "title": "HTTP Error 400",
+                    "name": "pod_mem_request_bytes",
+                    "title": "Bytes Requested",
                     "description": "",
                     "graphType": "line",
-                    "metricName": "pod_template_hash",
-                    "queryExpression": "sum(rate(http_server_requests_seconds_count {namespace=\"{{.namespace}}\", status=\"404\"} [1m])) by (namespace, pod_template_hash)"
+                    "metricName": "pod",
+                    "valueRounding": 0,
+                    "yAxisUnit": "MB",
+                    "queryExpression": "kubernetes_io:container_memory_request_bytes{pod_name=~\"{{.name}}\", container_name!=\"POD\"}/1048576"
                   }
                 ]
               },
               {
-                "name": "httptraffic",
-                "title": "HTTP Traffic",
+                "name": "mem_limits",
+                "title": "Memory Limits",
+                "tab": "Resources",
                 "graphs": [
                   {
-                    "name": "http_traffic",
-                    "title": "Traffic",
-                    "description": "",
-                    "graphType": "line",
-                    "metricName": "pod_template_hash",
-                    "queryExpression": "sum(rate(http_server_requests_seconds_count {namespace=\"{{.namespace}}\"} [1m])) by (namespace, pod_template_hash)"
-                  }
-                ]
-              },
-
-              {
-                "name": "pod",
-                "title": "Pods",
-                "graphs": [
-                  {
-                    "name": "pod_cpu_line",
-                    "title": "CPU",
+                    "name": "pod_mem_limit_utilization",
+                    "title": "Limit Utilization",
                     "description": "",
                     "graphType": "line",
                     "metricName": "pod",
-                    "queryExpression": "sum(rate(container_cpu_usage_seconds_total{pod=~\"{{.name}}\", image!=\"\", container!=\"POD\", container!=\"\", container_name!=\"POD\"}[5m])) by (pod)"
+                    "valueRounding": 2,
+                    "yAxisUnit": "%",
+                    "queryExpression": "kubernetes_io:container_memory_limit_utilization{pod_name=~\"{{.name}}\", container_name!=\"POD\"}*100"
                   },
                   {
-                    "name": "pod_cpu_pie",
-                    "title": "CPU Avg",
-                    "description": "",
-                    "graphType": "pie",
-                    "metricName": "pod",
-                    "queryExpression": "sum(rate(container_cpu_usage_seconds_total{pod=~\"{{.name}}\", container!=\"POD\", image!=\"\", container!=\"\", container_name!=\"POD\"}[5m])) by (pod)"
-                  },
-                  {
-                    "name": "pod_memory_line",
-                    "title": "Memory",
+                    "name": "pod_mem_limit_bytes",
+                    "title": "Byte Limit",
                     "description": "",
                     "graphType": "line",
                     "metricName": "pod",
-                    "queryExpression": "sum(rate(container_memory_usage_bytes{pod=~\"{{.name}}\", container!=\"POD\", image!=\"\", container!=\"\", container_name!=\"POD\"}[5m])) by (pod)"
-                  },
-                  {
-                    "name": "pod_memory_pie",
-                    "title": "Mem Avg",
-                    "description": "",
-                    "graphType": "pie",
-                    "metricName": "pod",
-                    "queryExpression": "sum(rate(container_memory_usage_bytes{pod=~\"{{.name}}\", container!=\"POD\", image!=\"\", container!=\"\", container_name!=\"POD\"}[5m])) by (pod)"
+                    "valueRounding": 0,
+                    "yAxisUnit": "MB",
+                    "queryExpression": "kubernetes_io:container_memory_limit_bytes{pod_name=~\"{{.name}}\", container_name!=\"POD\"}/1048576"
                   }
                 ]
               }
             ]
-
+          },
+          {
+            "groupKind": "rollout",
+            "tabs": ["Resources"],
+            "rows": [
+              {
+                "name": "cpu_request",
+                "title": "CPU Requests",
+                "tab": "Resources",
+                "graphs": [
+                  {
+                    "name": "pod_cpu_request_utilization",
+                    "title": "Request Utilization",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "valueRounding": 2,
+                    "yAxisUnit": "%",
+                    "queryExpression": "kubernetes_io:container_cpu_request_utilization{pod_name=~\"{{.name}}\", container_name!=\"POD\"}*100"
+                  },
+                  {
+                    "name": "pod_cpu_request_cores",
+                    "title": "Cores Requested",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "queryExpression": "kubernetes_io:container_cpu_request_cores{pod_name=~\"{{.name}}\", container_name!=\"POD\"}"
+                  }
+                ]
+              },
+              {
+                "name": "cpu_limit",
+                "title": "CPU Limits",
+                "tab": "Resources",
+                "graphs": [
+                  {
+                    "name": "pod_cpu_limit_utilization",
+                    "title": "Limit Utilization",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "valueRounding": 2,
+                    "yAxisUnit": "%",
+                    "queryExpression": "kubernetes_io:container_cpu_limit_utilization{pod_name=~\"{{.name}}\", container_name!=\"POD\"}*100"
+                  },
+                  {
+                    "name": "pod_cpu_limit_cores",
+                    "title": "Core Limit",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "queryExpression": "kubernetes_io:container_cpu_limit_cores{pod_name=~\"{{.name}}\", container_name!=\"POD\"}"
+                  }
+                ]
+              },
+              {
+                "name": "mem_requests",
+                "title": "Memory Requests",
+                "tab": "Resources",
+                "graphs": [
+                  {
+                    "name": "pod_mem_request_utilization",
+                    "title": "Request Utilization",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "valueRounding": 2,
+                    "yAxisUnit": "%",
+                    "queryExpression": "kubernetes_io:container_memory_request_utilization{pod_name=~\"{{.name}}\", container_name!=\"POD\"}*100"
+                  },
+                  {
+                    "name": "pod_mem_request_bytes",
+                    "title": "Bytes Requested",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "valueRounding": 0,
+                    "yAxisUnit": "MB",
+                    "queryExpression": "kubernetes_io:container_memory_request_bytes{pod_name=~\"{{.name}}\", container_name!=\"POD\"}/1048576"
+                  }
+                ]
+              },
+              {
+                "name": "mem_limits",
+                "title": "Memory Limits",
+                "tab": "Resources",
+                "graphs": [
+                  {
+                    "name": "pod_mem_limit_utilization",
+                    "title": "Limit Utilization",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "valueRounding": 2,
+                    "yAxisUnit": "%",
+                    "queryExpression": "kubernetes_io:container_memory_limit_utilization{pod_name=~\"{{.name}}\", container_name!=\"POD\"}*100"
+                  },
+                  {
+                    "name": "pod_mem_limit_bytes",
+                    "title": "Byte Limit",
+                    "description": "",
+                    "graphType": "line",
+                    "metricName": "pod",
+                    "valueRounding": 0,
+                    "yAxisUnit": "MB",
+                    "queryExpression": "kubernetes_io:container_memory_limit_bytes{pod_name=~\"{{.name}}\", container_name!=\"POD\"}/1048576"
+                  }
+                ]
+              }
+            ]
           }
         ]
       }
     ],
-
-    "provider":
+    "defaultEndpoint": "nonprod",
+    "endpoints":
     {
-      "Name": "default",
-      "default": true,
-      "address": "http://prometheus-service.monitoring.svc.cluster.local:8080"
+      "nonprod": {
+        "argoProjectRegex": "^.*-nonprod$",
+        "bearerTokenFile": "/token/bearer.token",
+        "url": "https://url-to-nonprod"
+      },
+      "prod": {
+        "argoProjectRegex": "^.*-prod$",
+        "bearerTokenFile": "/token/bearer.token",
+        "url": "https://url-to-prod"
+      }
     }
   }
 }
