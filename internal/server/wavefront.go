@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -11,16 +12,17 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
 
 	wavefront "github.com/WavefrontHQ/go-wavefront-management-api"
 	"github.com/gin-gonic/gin"
 )
 
 type WaveFrontProvider struct {
-	logger   *zap.SugaredLogger
-	provider *wavefront.Client
-	config   *MetricsConfigProvider
-	token    string
+	logger *zap.SugaredLogger
+	client *wavefront.Client
+	config *MetricsEndpointConfig
+	token  string
 }
 
 // getDashboard returns the dashboard configuration for the specified application
@@ -41,19 +43,40 @@ func (wf *WaveFrontProvider) getDashboard(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, dash)
 }
 
-func NewWavefrontProvider(waveFrontConfig *MetricsConfigProvider, token string, logger *zap.SugaredLogger) *WaveFrontProvider {
-	return &WaveFrontProvider{config: waveFrontConfig, token: token, logger: logger}
+func NewWavefrontProvider(wavefrontConfig *MetricsEndpointConfig, token string, logger *zap.SugaredLogger) (*WaveFrontProvider, error) {
+	if wavefrontConfig != nil {
+		switch {
+		case len(wavefrontConfig.Endpoints) == 0:
+			return nil, errors.New("no endpoints specified in wavefront config")
+		case len(wavefrontConfig.Endpoints) == 1:
+			// if 'defaultEndpoint' is unspecified in config, and there's only one endpoint,
+			// then set it as default.
+			if len(wavefrontConfig.DefaultEndpoint) == 0 {
+				wavefrontConfig.DefaultEndpoint = maps.Keys(wavefrontConfig.Endpoints)[0]
+			}
+		case len(wavefrontConfig.Endpoints) > 1:
+			return nil, errors.New("'defaultEndpoint' must be specified when multiple wavefront endpoints are defined")
+		}
+
+		wavefrontProvider := &WaveFrontProvider{config: wavefrontConfig, token: token, logger: logger}
+
+		if err := wavefrontProvider.init(); err != nil {
+			return nil, err
+		}
+
+		return wavefrontProvider, nil
+	}
+	return nil, errors.New("wavefront provider config section is defined, but empty")
 }
 
 func (wf *WaveFrontProvider) init() error {
-
 	wfConfig := wavefront.Config{
-		Address:       wf.config.Provider.Address,
+		Address:       wf.config.Endpoints[wf.config.DefaultEndpoint].URL,
 		Token:         wf.token,
 		SkipTLSVerify: true,
 	}
 	var err error
-	wf.provider, err = wavefront.NewClient(&wfConfig)
+	wf.client, err = wavefront.NewClient(&wfConfig)
 	if err != nil {
 		return err
 	}
@@ -88,7 +111,7 @@ func executeWavefrontGraphQuery(queryExpression string, env map[string][]string,
 	wfQuery := wavefront.NewQueryParams(strQuery)
 	wfQuery.StartTime = strconv.FormatInt(startTime.Unix(), 10)
 	wfQuery.EndTime = strconv.FormatInt(endTime.Unix(), 10)
-	query := wf.provider.NewQuery(wfQuery)
+	query := wf.client.NewQuery(wfQuery)
 	result, err := query.Execute()
 	if err != nil {
 		wf.logger.Errorw("error in query execution on wavefront", zap.Error(err))

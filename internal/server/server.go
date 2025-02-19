@@ -79,9 +79,10 @@ func (ms *O11yServer) Run(ctx context.Context) {
 		panic(err)
 	}
 	if ms.config.Prometheus != nil {
-		ms.provider = NewPrometheusProvider(ms.config.Prometheus, ms.logger)
-		err := ms.provider.init()
-		if err != nil {
+		if ms.provider, err = NewPrometheusProvider(ms.config.Prometheus, ms.logger); err != nil {
+			log.Panic(err)
+		}
+		if err = ms.provider.init(); err != nil {
 			log.Panic(err)
 		}
 	} else if ms.config.Wavefront != nil {
@@ -89,7 +90,9 @@ func (ms *O11yServer) Run(ctx context.Context) {
 		if !found {
 			ms.logger.Fatal("WAVEFRONT_TOKEN env not set")
 		}
-		ms.provider = NewWavefrontProvider(ms.config.Wavefront, token, ms.logger)
+		if ms.provider, err = NewWavefrontProvider(ms.config.Prometheus, token, ms.logger); err != nil {
+			log.Panic(err)
+		}
 		err := ms.provider.init()
 		if err != nil {
 			log.Panic(err)
@@ -143,6 +146,8 @@ func (ms *O11yServer) runWithTLS(address string, handler *gin.Engine) {
 
 func (ms *O11yServer) queryMetrics(ctx *gin.Context) {
 	headers := ctx.Request.Header
+	headersStr, _ := json.MarshalIndent(headers, "", "  ")
+	fmt.Println(string(headersStr))
 
 	if err := validateHeader(headers, "Argocd-Application-Name"); err != nil {
 		ms.logger.Warn(err)

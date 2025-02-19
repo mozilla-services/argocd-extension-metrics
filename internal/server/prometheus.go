@@ -3,11 +3,14 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
 	"time"
+
+	"golang.org/x/exp/maps"
 
 	"github.com/prometheus/common/model"
 	"go.uber.org/zap"
@@ -35,9 +38,9 @@ type AggregatedResponse struct {
 }
 
 type PrometheusProvider struct {
-	logger   *zap.SugaredLogger
-	provider v1.API
-	config   *MetricsConfigProvider
+	logger     *zap.SugaredLogger
+	config     *MetricsEndpointConfig
+	apiClients map[string]v1.API
 }
 
 func (pp *PrometheusProvider) getType() string {
@@ -63,41 +66,98 @@ func (pp *PrometheusProvider) getDashboard(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, dash)
 }
 
-func NewPrometheusProvider(prometheusConfig *MetricsConfigProvider, logger *zap.SugaredLogger) *PrometheusProvider {
-	return &PrometheusProvider{config: prometheusConfig, logger: logger}
+func NewPrometheusProvider(prometheusConfig *MetricsEndpointConfig, logger *zap.SugaredLogger) (*PrometheusProvider, error) {
+	if prometheusConfig != nil {
+		switch {
+		case len(prometheusConfig.Endpoints) == 0:
+			return nil, errors.New("no endpoints specified in prometheus config")
+		case len(prometheusConfig.Endpoints) == 1:
+			// if 'defaultEndpoint' is unspecified in config, and there's only one endpoint,
+			// then set it as default.
+			if len(prometheusConfig.DefaultEndpoint) == 0 {
+				prometheusConfig.DefaultEndpoint = maps.Keys(prometheusConfig.Endpoints)[0]
+			}
+		case len(prometheusConfig.Endpoints) > 1 && len(prometheusConfig.DefaultEndpoint) == 0:
+			return nil, errors.New("'defaultEndpoint' must be specified when multiple prometheus endpoints are defined")
+		}
+
+		prometheusProvider := &PrometheusProvider{config: prometheusConfig, apiClients: map[string]v1.API{}, logger: logger}
+
+		if err := prometheusProvider.init(); err != nil {
+			return nil, err
+		}
+
+		return prometheusProvider, nil
+	}
+	return nil, errors.New("prometheus provider config section is defined, but empty")
 }
 
-func (pp *PrometheusProvider) getBearerToken() config.SecretReader {
-	if len(pp.config.Provider.BearerToken) > 0 {
-		return config.NewInlineSecret(pp.config.Provider.BearerToken)
-	} else if len(pp.config.Provider.BearerTokenFile) > 0 {
-		return config.NewFileSecret(pp.config.Provider.BearerTokenFile)
+func (ep *metricsEndpoint) getBearerToken() config.SecretReader {
+	if len(ep.BearerToken) > 0 {
+		return config.NewInlineSecret(ep.BearerToken)
+	} else if len(ep.BearerTokenFile) > 0 {
+		return config.NewFileSecret(ep.BearerTokenFile)
 	}
 
 	return nil
 }
 
-func (pp *PrometheusProvider) init() error {
-	var rt http.RoundTripper
-	if token := pp.getBearerToken(); token != nil {
-		rt = config.NewAuthorizationCredentialsRoundTripper(
-			"Bearer",
-			token,
-			api.DefaultRoundTripper,
-		)
-	} else {
-		rt = api.DefaultRoundTripper
+func (pp *PrometheusProvider) getClient(ctx *gin.Context) (v1.API, error) {
+	if len(maps.Keys(pp.apiClients)) == 1 {
+		// Only one client, so return the "first"
+		return maps.Values(pp.apiClients)[0], nil
 	}
 
-	client, err := api.NewClient(api.Config{
-		Address:      pp.config.Provider.Address,
-		RoundTripper: rt,
-	})
+	// Argocd-Application-Name header value follows a pattern of "<namespace>:<app-name>"
+	// We just want the <app-name> part
+	// https://argo-cd.readthedocs.io/en/stable/developer-guide/extensions/proxy-extensions/#argocd-application-name-mandatory
+	applicationNameHeader := strings.Split(ctx.Request.Header["Argocd-Application-Name"][0], ":")[1]
+	projectNameHeader := ctx.Request.Header["Argocd-Project-Name"][0]
+
+	name, err := pp.config.getEndpointMatchIfExists(applicationNameHeader, projectNameHeader)
 	if err != nil {
-		pp.logger.Errorf("Error creating client: %v\n", err)
-		return err
+		return nil, err
 	}
-	pp.provider = v1.NewAPI(client)
+	client, hasKey := pp.apiClients[name]
+	if hasKey {
+		return client, nil
+	}
+
+	// Requested client doesn't exist, so return default client
+	client, hasKey = pp.apiClients[pp.config.DefaultEndpoint]
+	if hasKey {
+		return client, nil
+	} else {
+		// Default client also doesn't exist, so throw an error
+		return nil, errors.New("no matching client was found, and the default client is either unspecified or incorrect")
+	}
+}
+
+func (pp *PrometheusProvider) init() error {
+	for name, endpoint := range pp.config.Endpoints {
+		var rt http.RoundTripper
+		if token := endpoint.getBearerToken(); token != nil {
+			rt = config.NewAuthorizationCredentialsRoundTripper(
+				"Bearer",
+				token,
+				api.DefaultRoundTripper,
+			)
+		} else {
+			rt = api.DefaultRoundTripper
+		}
+
+		client, err := api.NewClient(api.Config{
+			Address:      endpoint.URL,
+			RoundTripper: rt,
+		})
+		if err != nil {
+			pp.logger.Errorf("an error occurred while initializing endpoint %s: error creating client: %v\n", name, err)
+			return err
+		}
+
+		pp.apiClients[name] = v1.NewAPI(client)
+	}
+
 	return nil
 }
 
@@ -125,8 +185,12 @@ func executeGraphQuery(ctx *gin.Context, queryExpression string, env map[string]
 		End:   time.Now(),
 		Step:  time.Minute,
 	}
+	client, err := pp.getClient(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error fetching client: %s", err)
+	}
 
-	result, warnings, err := pp.provider.QueryRange(ctx, strQuery, r)
+	result, warnings, err := client.QueryRange(ctx, strQuery, r)
 
 	if err != nil {
 		return nil, warnings, fmt.Errorf("error querying prometheus: %s", err)

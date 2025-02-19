@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/prometheus/common/config"
 )
@@ -80,23 +81,24 @@ func (a Application) getDashBoard(groupKind string) *Dashboard {
 	return a.DefaultDashboard
 }
 
-type provider struct {
-	Name            string           `json:"name"`
-	Address         string           `json:"address"`
-	Default         bool             `json:"default"`
-	TLSConfig       config.TLSConfig `json:"TLSConfig"`
-	BearerToken     string           `json:"bearerToken"`
-	BearerTokenFile string           `json:"bearerTokenFile"`
+type metricsEndpoint struct {
+	URL                  string           `json:"url"`
+	TLSConfig            config.TLSConfig `json:"tlsConfig"`
+	BearerToken          string           `json:"bearerToken"`
+	BearerTokenFile      string           `json:"bearerTokenFile"`
+	ArgoApplicationRegex string           `json:"argoApplicationRegex,omitempty"`
+	ArgoProjectRegex     string           `json:"argoProjectRegex,omitempty"`
 }
 
-type MetricsConfigProvider struct {
-	Applications []Application `json:"applications"`
-	Provider     provider      `json:"provider"`
+type MetricsEndpointConfig struct {
+	Applications    []Application              `json:"applications"`
+	Endpoints       map[string]metricsEndpoint `json:"endpoints"`
+	DefaultEndpoint string                     `json:"defaultEndpoint,omitempty"`
 }
 
-func (p *MetricsConfigProvider) getApp(name string) *Application {
+func (config *MetricsEndpointConfig) getApp(name string) *Application {
 	var defaultApp Application
-	for _, app := range p.Applications {
+	for _, app := range config.Applications {
 		if app.Name == name {
 			return &app
 		}
@@ -107,7 +109,46 @@ func (p *MetricsConfigProvider) getApp(name string) *Application {
 	return &defaultApp
 }
 
+func (config *MetricsEndpointConfig) getEndpointMatchIfExists(app string, project string) (string, error) {
+	for name, ep := range config.Endpoints {
+		switch {
+		case len(ep.ArgoApplicationRegex) > 0 && len(ep.ArgoProjectRegex) > 0:
+			appmatch, err := regexp.MatchString(ep.ArgoApplicationRegex, app)
+			if err != nil {
+				return "", err
+			}
+			projmatch, err := regexp.MatchString(ep.ArgoProjectRegex, project)
+			if err != nil {
+				return "", err
+			}
+
+			if appmatch && projmatch {
+				return name, nil
+			}
+		case len(ep.ArgoProjectRegex) > 0:
+			projmatch, err := regexp.MatchString(ep.ArgoProjectRegex, project)
+			if err != nil {
+				return "", err
+			}
+
+			if projmatch {
+				return name, nil
+			}
+		case len(ep.ArgoApplicationRegex) > 0:
+			appmatch, err := regexp.MatchString(ep.ArgoApplicationRegex, app)
+			if err != nil {
+				return "", err
+			}
+
+			if appmatch {
+				return name, nil
+			}
+		}
+	}
+	return "", nil
+}
+
 type O11yConfig struct {
-	Prometheus *MetricsConfigProvider `json:"prometheus"`
-	Wavefront  *MetricsConfigProvider `json:"wavefront"`
+	Prometheus *MetricsEndpointConfig `json:"prometheus"`
+	Wavefront  *MetricsEndpointConfig `json:"wavefront"`
 }
